@@ -30,7 +30,7 @@ class NoteViewController: UIViewController {
         self.note?.title = self.titleTextField.text ?? ""
         self.note?.content = self.contentTextView.text ?? ""
         do{
-            try self.note?.save()
+            try self.note?.saveToRemote()
         }catch{
             fatalError("Cannot save note: \(note?.title)")
         }

@@ -24,6 +24,7 @@ class NoteListViewController: UITableViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         self.updateNotes()
+        print(Bundle.allBundles)
     }
     
     @IBAction func updateTableViewContent(_ sender: UIRefreshControl) {
@@ -32,8 +33,12 @@ class NoteListViewController: UITableViewController {
     }
     
     func updateNotes() {
-        self.textNotes = TextNote.getSavedNotes().sorted{
-            $0.title > $1.title
+        TextNote.getRemoteNotes{ textNotes in
+            textNotes?.sorted{
+                $0.title > $1.title
+            }
+            guard let textNotes = textNotes else { return }
+            self.textNotes = textNotes
         }
     }
     
@@ -64,6 +69,7 @@ class NoteListViewController: UITableViewController {
         }
     }
     
+    
     func removeNote(at indexPath: IndexPath) {
         let note = self.textNotes[indexPath.row]
         
@@ -73,7 +79,7 @@ class NoteListViewController: UITableViewController {
         }
         
         do {
-            try TextNote.remove(title: note.title)
+            note.deleteFromRemote()
             updateNotes()
             self.tableView.deleteRows(at: [indexPath], with: .automatic)
         } catch {

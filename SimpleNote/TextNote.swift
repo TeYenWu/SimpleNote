@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Alamofire
 
 struct TextNote {
     var title: String  = TextNote.defaultTitle() {
@@ -22,12 +23,20 @@ struct TextNote {
         return templateContent
     }()
     
+    var id: String = ""
+    
     var fileURL: URL {
         return TextNote.fileURL(of: self.title)
     }
     
     func save() throws {
         try self.content.write(to: self.fileURL, atomically: true, encoding: .utf8)
+    }
+    
+    init(id: String = "", title: String = "", content: String = "") {
+        self.id = id
+        self.title = title
+        self.content = content
     }
 }
 
@@ -96,6 +105,69 @@ extension TextNote {
     static func remove(title: String) throws {
         try FileManager.default.removeItem(at: self.fileURL(of: title))
     }
+}
 
+extension TextNote {
+    static let remoteAPIEndpoint: URL = URL(string: "http://127.0.0.1:3000")!
+
+    static var collectionURL: URL {
+        return remoteAPIEndpoint.appendingPathComponent("notes")}
+    
+    static func remoteURL(id: String) -> URL {
+        if id == ""{
+            return remoteAPIEndpoint.appendingPathComponent("note")
+        }
+        else {
+            return remoteAPIEndpoint.appendingPathComponent("note").appendingPathComponent("id")
+        }
+    }
+        
+    static func getRemoteNotes(completion: (([TextNote]?) -> Void)? = nil) -> Void{
+        Alamofire
+            .request(collectionURL, method: .get, encoding: JSONEncoding.default)
+            .responseJSON { dataResponse in
+                guard dataResponse.result.isSuccess else {
+                    completion?(nil)
+                    return
+                }
+                // Done
+                guard let respValue = dataResponse.value as? [[String: Any]] else {
+                    print("Failed to get the list of notes.")
+                    return
+                }
+                
+                var fetchedNotesList = [TextNote]()
+                for item in respValue {
+                    guard let title = item["title"] as? String, let content = item["content"] as? String, let id = item["_id"] as? String else { fatalError("Failed to parse the content of notes.") }
+                    
+                    fetchedNotesList.append(TextNote(id: id, title: title, content: content))
+                }
+                completion?(fetchedNotesList)
+        }
+    }
+    
+    func saveToRemote(completion: ((Bool) -> Void)? = nil) {
+        Alamofire
+            .request(TextNote.remoteURL(id: id), method: .post,  parameters: ["title": self.title, "content": self.content], encoding: JSONEncoding.default)
+            .responseJSON { dataResponse in
+                guard dataResponse.result.isSuccess else {
+                    completion?(false)
+                    return
+                }
+                completion?(true)
+        }
+    }
+    
+    func deleteFromRemote(completion: ((Bool) -> Void)? = nil) {
+        Alamofire
+            .request(TextNote.remoteURL(id: id), method: .delete, encoding: JSONEncoding.default)
+            .responseJSON { dataResponse in
+                guard dataResponse.result.isSuccess else {
+                    completion?(false)
+                    return
+                }
+                completion?(true)
+        }
+    }
 }
 
